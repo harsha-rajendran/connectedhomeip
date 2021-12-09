@@ -162,3 +162,6 @@
 [submodule "p6/lwip"]
 	path = third_party/p6/p6_sdk/libs/lwip
 	url = https://git.savannah.nongnu.org/git/lwip
+[submodule "third_party/mbed-mcu-boot/repo"]
+	path = third_party/mbed-mcu-boot/repo
+	url = https://github.com/lambda-shuttle/mcuboot.git
