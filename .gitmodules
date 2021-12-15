@@ -81,7 +81,7 @@
 	url = https://github.com/openthread/ot-efr32.git
 [submodule "third_party/mbed-os/repo"]
 	path = third_party/mbed-os/repo
-	url = https://github.com/ARMmbed/mbed-os.git
+	url = https://github.com/ATmobica/mbed-os.git
 	branch = master
 [submodule "third_party/mbed-os-posix-socket/repo"]
 	path = third_party/mbed-os-posix-socket/repo
@@ -164,4 +164,4 @@
 	url = https://git.savannah.nongnu.org/git/lwip
 [submodule "third_party/mbed-mcu-boot/repo"]
 	path = third_party/mbed-mcu-boot/repo
-	url = https://github.com/lambda-shuttle/mcuboot.git
+	url = https://github.com/ATmobica/mcuboot.git
