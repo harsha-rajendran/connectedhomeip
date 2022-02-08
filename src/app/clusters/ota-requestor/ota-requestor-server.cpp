@@ -20,7 +20,9 @@
  * to the OTA Requestor object that handles them
  */
 
+#include "app/clusters/ota-requestor/OTARequestor.h"
 #include <app/AttributeAccessInterface.h>
+#include <app/DefaultAttributePersistenceProvider.h>
 #include <app/EventLogging.h>
 #include <app/clusters/ota-requestor/ota-requestor-server.h>
 #include <app/util/attribute-storage.h>
@@ -51,28 +53,82 @@ OtaSoftwareUpdateRequestorAttrAccess gAttrAccess;
 
 CHIP_ERROR OtaSoftwareUpdateRequestorAttrAccess::Read(const ConcreteReadAttributePath & aPath, AttributeValueEncoder & aEncoder)
 {
+    CHIP_ERROR err = CHIP_NO_ERROR;
+    ChipLogError(Zcl, "*************************** HARSHA READ ************************");
     switch (aPath.mAttributeId)
     {
-    case Attributes::DefaultOtaProviders::Id:
-        return aEncoder.Encode(DataModel::List<uint8_t>());
+    case Attributes::DefaultOtaProviders::Id: {
+        uint16_t size = 20;
+        OtaSoftwareUpdateRequestor::Structs::ProviderLocation::Type read_value[2];
+        //ReturnErrorOnFailure(chip::DeviceLayer::PersistedStorage::KeyValueStoreMgr().Get("ota", &read_value, size));
+        //ReturnErrorOnFailure(static_cast<chip::OTARequestor *>(GetRequestorInstance())->get_storage()->SyncGetKeyValue("ota", &read_value, size));
+        ReturnErrorOnFailure(static_cast<chip::OTARequestor *>(GetRequestorInstance())->LoadDefaultOtaProvidersList(&read_value, size));
+        ChipLogError(Zcl, "value1: %u, value2: %lu, value3: %u", read_value[0].fabricIndex, read_value[0].providerNodeID,
+                     read_value[0].endpoint);
+        ChipLogError(Zcl, "value1: %u, value2: %lu, value3: %u", read_value[1].fabricIndex, read_value[1].providerNodeID,
+                     read_value[1].endpoint);
+        err = aEncoder.EncodeList([&read_value](const auto & encoder) -> CHIP_ERROR {
+            for (const OtaSoftwareUpdateRequestor::Structs::ProviderLocation::Type & provider : read_value)
+            {
+                ReturnErrorOnFailure(encoder.Encode(provider));
+            }
+            return CHIP_NO_ERROR;
+        });
+    }
+    break;
     default:
+        ChipLogError(Zcl, "******* OTA Read Attr: %u", aPath.mAttributeId);
         break;
     }
 
-    return CHIP_NO_ERROR;
+    return err;
 }
 
 CHIP_ERROR OtaSoftwareUpdateRequestorAttrAccess::Write(const ConcreteDataAttributePath & aPath, AttributeValueDecoder & aDecoder)
 {
+    ChipLogError(Zcl, "*************************** HARSHA WRITE ************************");
     switch (aPath.mAttributeId)
     {
     case Attributes::DefaultOtaProviders::Id: {
-        DataModel::DecodableList<OtaSoftwareUpdateRequestor::Structs::ProviderLocation::DecodableType> list;
-        ReturnErrorOnFailure(aDecoder.Decode(list));
-        // Ignore the list for now
+        uint8_t i                                                          = 0;
+        OtaSoftwareUpdateRequestor::Structs::ProviderLocation::Type val[2] = {};
+        if (!aPath.IsListItemOperation())
+        {
+            ChipLogError(Zcl, "******* OTA Write Attr: %u", aPath.mAttributeId);
+            DataModel::DecodableList<OtaSoftwareUpdateRequestor::Structs::ProviderLocation::DecodableType> list;
+            CHIP_ERROR err = aDecoder.Decode(list);
+            ChipLogError(Zcl, "******* Decode error: %s", err.AsString());
+            if (err != CHIP_NO_ERROR) return err;
+            size_t size;
+            ReturnErrorOnFailure(list.ComputeSize(&size));
+            auto iter                                                          = list.begin();
+            ChipLogError(Zcl, "******* OTA Write SIZE: %lu", size);
+            while (iter.Next())
+            {
+                auto & value = iter.GetValue();
+                val[i]       = value;
+                i++;
+                ChipLogError(Zcl, "value1: %u, value2: %lu, value3: %u", value.fabricIndex, value.providerNodeID, value.endpoint);
+            }
+        }
+        else if (aPath.mListOp == ConcreteDataAttributePath::ListOperation::AppendItem)
+        {
+            OtaSoftwareUpdateRequestor::Structs::ProviderLocation::DecodableType value;
+            CHIP_ERROR err = aDecoder.Decode(value);
+            val[i]       = value;
+            i++;
+            ChipLogError(Zcl, "******* Decode error: %s", err.AsString());
+            if (err != CHIP_NO_ERROR) return err;
+            ChipLogError(Zcl, "value1: %u, value2: %lu, value3: %u", value.fabricIndex, value.providerNodeID, value.endpoint);
+        }
+        uint16_t size = static_cast<uint16_t>(sizeof(val));
+        //ReturnErrorOnFailure(chip::DeviceLayer::PersistedStorage::KeyValueStoreMgr().Put("ota", val));
+        //return static_cast<chip::OTARequestor *>(GetRequestorInstance())->get_storage()->SyncSetKeyValue("ota", val, size);
+        return static_cast<chip::OTARequestor *>(GetRequestorInstance())->StoreDefaultOtaProvidersList(val, size);
         break;
     }
     default:
+        ChipLogError(Zcl, "******* OTA Write Attr: %u", aPath.mAttributeId);
         break;
     }
     return CHIP_NO_ERROR;

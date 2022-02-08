@@ -23,6 +23,7 @@
 #pragma once
 
 #include <app/CASESessionManager.h>
+#include <app/clusters/ota-requestor/OTARequestorStorage.h>
 #include <app/clusters/ota-requestor/ota-requestor-server.h>
 #include <app/server/Server.h>
 #include <platform/OTARequestorDriver.h>
@@ -78,12 +79,13 @@ public:
      *   - Set the OTA requestor driver instance used to communicate download progress and errors
      *   - Set the BDX downloader instance used for initiating BDX downloads
      */
-    void Init(Server * server, OTARequestorDriver * driver, BDXDownloader * downloader)
+    void Init(Server * server, OTARequestorDriver * driver, BDXDownloader * downloader, OTARequestorStorage * storage)
     {
-        mServer             = server;
-        mCASESessionManager = server->GetCASESessionManager();
-        mOtaRequestorDriver = driver;
-        mBdxDownloader      = downloader;
+        mServer              = server;
+        mCASESessionManager  = server->GetCASESessionManager();
+        mOtaRequestorDriver  = driver;
+        mBdxDownloader       = downloader;
+        mOtaRequestorStorage = storage;
 
         uint32_t version;
         ReturnOnFailure(DeviceLayer::ConfigurationMgr().GetSoftwareVersion(version));
@@ -94,6 +96,8 @@ public:
         percent.SetNull();
         OtaRequestorServerSetUpdateStateProgress(percent);
     }
+
+    //OTARequestorStorage * get_storage() const { return mOtaRequestorStorage; }
 
     /**
      * Called to establish a session to mProviderNodeId on mProviderFabricIndex. This must be called from the same externally
@@ -131,6 +135,27 @@ public:
     // FALSE otherwise
     void OnUserConsent(bool result);
 
+    /*class OTARequestorStorage: public PersistentStorageDelegate
+    {
+        public:
+            virtual ~OTARequestorStorage() = default;
+    };*/
+
+    CHIP_ERROR LoadDefaultOtaProvidersList(void * buffer, uint16_t & size)
+    {
+        return mOtaRequestorStorage->SyncGetKeyValue(defaultOtaProvidersListkey, buffer, size);
+    }
+
+    CHIP_ERROR StoreDefaultOtaProvidersList(void * buffer, uint16_t & size)
+    {
+        return mOtaRequestorStorage->SyncSetKeyValue(defaultOtaProvidersListkey, buffer, size);
+    }
+
+    CHIP_ERROR RemoveDefaultOtaProvidersList()
+    {
+        return mOtaRequestorStorage->SyncDeleteKeyValue(defaultOtaProvidersListkey);
+    }
+
 private:
     using QueryImageResponseDecodableType  = app::Clusters::OtaSoftwareUpdateProvider::Commands::QueryImageResponse::DecodableType;
     using ApplyUpdateResponseDecodableType = app::Clusters::OtaSoftwareUpdateProvider::Commands::ApplyUpdateResponse::DecodableType;
@@ -138,6 +163,7 @@ private:
     using OTAChangeReasonEnum              = app::Clusters::OtaSoftwareUpdateRequestor::OTAChangeReasonEnum;
 
     static constexpr size_t kMaxUpdateTokenLen = 32;
+    static constexpr const char * defaultOtaProvidersListkey = "defaultOtaProvList";
 
     // TODO: the application should define this, along with initializing the BDXDownloader
 
@@ -269,16 +295,17 @@ private:
     static void OnNotifyUpdateAppliedResponse(void * context, const app::DataModel::NullObjectType & response);
     static void OnNotifyUpdateAppliedFailure(void * context, CHIP_ERROR error);
 
-    OTARequestorDriver * mOtaRequestorDriver  = nullptr;
-    NodeId mProviderNodeId                    = kUndefinedNodeId;      // Only valid for the current update in progress
-    FabricIndex mProviderFabricIndex          = kUndefinedFabricIndex; // Only valid for the current update in progress
-    EndpointId mProviderEndpointId            = kRootEndpointId;       // Only valid for the current update in progress
-    uint32_t mOtaStartDelayMs                 = 0;
-    CASESessionManager * mCASESessionManager  = nullptr;
-    OnConnectedAction mOnConnectedAction      = kQueryImage;
-    Messaging::ExchangeContext * mExchangeCtx = nullptr;
-    BDXDownloader * mBdxDownloader            = nullptr; // TODO: this should be OTADownloader
-    BDXMessenger mBdxMessenger;                          // TODO: ideally this is held by the application
+    OTARequestorDriver * mOtaRequestorDriver   = nullptr;
+    OTARequestorStorage * mOtaRequestorStorage = nullptr;
+    NodeId mProviderNodeId                     = kUndefinedNodeId;      // Only valid for the current update in progress
+    FabricIndex mProviderFabricIndex           = kUndefinedFabricIndex; // Only valid for the current update in progress
+    EndpointId mProviderEndpointId             = kRootEndpointId;       // Only valid for the current update in progress
+    uint32_t mOtaStartDelayMs                  = 0;
+    CASESessionManager * mCASESessionManager   = nullptr;
+    OnConnectedAction mOnConnectedAction       = kQueryImage;
+    Messaging::ExchangeContext * mExchangeCtx  = nullptr;
+    BDXDownloader * mBdxDownloader             = nullptr; // TODO: this should be OTADownloader
+    BDXMessenger mBdxMessenger;                           // TODO: ideally this is held by the application
     uint8_t mUpdateTokenBuffer[kMaxUpdateTokenLen];
     ByteSpan mUpdateToken;
     uint32_t mCurrentVersion               = 0;
